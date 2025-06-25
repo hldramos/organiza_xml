@@ -13,26 +13,23 @@ def sanitizar_nome(nome):
     """
     # Caracteres permitidos (Unicode code points)
     permitidos = (
-        ' -_.'  # Espaço, hífen, underline, ponto
-        'abcdefghijklmnopqrstuvwxyz'
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        '0123456789'
+        " -_."  # Espaço, hífen, underline, ponto
+        "abcdefghijklmnopqrstuvwxyz"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "0123456789"
     )
 
     # Converter para ASCII removendo acentos
     try:
-        nome_ascii = nome.encode('ascii', errors='ignore').decode('ascii')
+        nome_ascii = nome.encode("ascii", errors="ignore").decode("ascii")
     except:
         nome_ascii = nome
 
     # Filtrar caracteres permitidos
-    nome_sanitizado = ''.join(
-        c for c in nome_ascii
-        if c in permitidos
-    ).strip()
+    nome_sanitizado = "".join(c for c in nome_ascii if c in permitidos).strip()
 
     # Remover múltiplos espaços consecutivos
-    nome_sanitizado = ' '.join(nome_sanitizado.split())
+    nome_sanitizado = " ".join(nome_sanitizado.split())
 
     # Limitar tamanho máximo para 200 caracteres
     max_length = 200
@@ -40,35 +37,52 @@ def sanitizar_nome(nome):
         nome_sanitizado = nome_sanitizado[:max_length]
 
     # Garantir que o nome não termine com ponto ou espaço
-    while nome_sanitizado and nome_sanitizado[-1] in ('.', ' '):
+    while nome_sanitizado and nome_sanitizado[-1] in (".", " "):
         nome_sanitizado = nome_sanitizado[:-1]
 
     # Se o nome ficar vazio, usar fallback
-    return nome_sanitizado or 'nome_invalido'
+    return nome_sanitizado or "nome_invalido"
 
 
 def extrair_dados_xml(caminho):
     """Extrai xNome e dhEmi com tratamento de diferentes estruturas XML"""
     try:
-        with open(caminho, 'rb') as arquivo:
+        with open(caminho, "rb") as arquivo:
             dados = xmltodict.parse(arquivo)
 
             # Verificar diferentes estruturas de XML
             estruturas = [
-                dados.get('NFe', {}).get('infNFe', {}),
-                dados.get('nfeProc', {}).get('NFe', {}).get('infNFe', {}),
-                dados.get('NFe', {}),
-                dados.get('nfeProc', {}).get('NFe', {})
+                dados.get("nfeProc", {}).get("NFe", {}).get("infNFe", {}),
+                dados.get("NFe", {}).get("infNFe", {}),
+                dados.get("nfeProc", {}).get("NFe", {}),
+                dados.get("NFe", {}),
+                dados.get("procEventoNFe", {}).get("evento", {}).get("infEvento", {}),
+                dados.get("procEventoNFe", {}).get("evento", {}),
+                dados.get("procEventoNFe", {}),
+                dados.get("mdfeProc", {}).get("MDFe", {}).get("infMDFe", {}),
+                dados.get("MDFe", {}).get("mdfeProc", {}).get("infMDFe", {}),
+                dados.get("mdfeProc", {}).get("infMDFe", {}),
+                dados.get("MDFe", {}).get("infMDFe", {}),
+                dados.get("MDFe", {}),
+                dados.get("procEventoMDFe", {}),
+                dados.get("procEventoMDFe", {}).get("eventoMDFe", {}),
+                dados.get("procEventoMDFe", {}).get("eventoMDFe", {}).get("infEvento", {}),
             ]
 
-
             for estrutura in estruturas:
-                if 'emit' in estrutura and 'xNome' in estrutura['emit']:
-                    dados_emitente = list()
-                    dados_emitente.append(estrutura['emit']['CNPJ'])
-                    dados_emitente.append(estrutura['emit']['xNome'])
-                    emitente = "-".join(dados_emitente)
-                    data_str = estrutura.get('ide', {}).get('dhEmi', 'sem_data')
+                if "emit" in estrutura and "xNome" in estrutura["emit"]:
+                    # dados_emitente = list()
+                    # dados_emitente.append(estrutura["emit"]["CNPJ"])
+                    # dados_emitente.append(estrutura["emit"]["xNome"])
+                    # emitente = "-".join(dados_emitente)
+                    emitente = estrutura["emit"]["CNPJ"]
+                    data_str = estrutura.get("ide", {}).get("dhEmi", "sem_data")
+                    return emitente, data_str
+                elif (
+                    "CNPJ" in estrutura and estrutura.get("tpEvento", None) == "110111"
+                ):
+                    emitente = estrutura.get("CNPJ")
+                    data_str = estrutura.get("dhEvento", "sem_data")
                     return emitente, data_str
             return None, None
 
@@ -85,13 +99,13 @@ def criar_estrutura_pastas(base, emitente, data_str):
         caminho_emissor = os.path.join(base, pasta_emissor)
 
         # Processar data de emissão
-        if data_str.lower() == 'sem_data':
-            caminho_final = os.path.join(caminho_emissor, 'sem_data')
+        if data_str.lower() == "sem_data":
+            caminho_final = os.path.join(caminho_emissor, "sem_data")
         else:
             try:
                 # Remover timezone e converter para objeto datetime
-                data_limpa = data_str.split('T')[0]
-                dt = datetime.strptime(data_limpa, '%Y-%m-%d')
+                data_limpa = data_str.split("T")[0]
+                dt = datetime.strptime(data_limpa, "%Y-%m-%d")
 
                 # Criar estrutura ano/mês/dia-mes-ano
                 ano = str(dt.year)
@@ -101,7 +115,7 @@ def criar_estrutura_pastas(base, emitente, data_str):
                 caminho_final = os.path.join(caminho_emissor, ano, mes, dia_formatado)
 
             except ValueError:
-                caminho_final = os.path.join(caminho_emissor, 'data_invalida')
+                caminho_final = os.path.join(caminho_emissor, "data_invalida")
 
         # Criar toda a hierarquia de pastas
         os.makedirs(caminho_final, exist_ok=True)
@@ -121,12 +135,11 @@ def processar_xml(pasta_origem, pasta_destino, funcao_copy):
 
     for raiz, _, arquivos in os.walk(pasta_origem):
         for arquivo in arquivos:
-            if not arquivo.lower().endswith('.xml'):
+            if not arquivo.lower().endswith(".xml"):
                 continue
 
             caminho_completo = os.path.join(raiz, arquivo)
             emitente, data_str = extrair_dados_xml(caminho_completo)
-
 
             if not emitente:
                 erros += 1
@@ -141,7 +154,7 @@ def processar_xml(pasta_origem, pasta_destino, funcao_copy):
                 continue
 
             try:
-                if funcao_copy=="copiar":
+                if funcao_copy.lower() == "copiar":
                     shutil.copy2(caminho_completo, os.path.join(destino, arquivo))
                 else:
                     shutil.move(caminho_completo, os.path.join(destino, arquivo))
@@ -166,6 +179,3 @@ if __name__ == "__main__":
         print("\nErro: A pasta de origem não existe!")
     else:
         processar_xml(origem, destino, opcao)
-
-
-"C:\\Users\\helde\\Downloads\\teste"
