@@ -44,33 +44,69 @@ def sanitizar_nome(nome):
     return nome_sanitizado or "nome_invalido"
 
 
-def extrair_dados_xml(caminho):
+def extrair_dados_xml(caminho, tipo_documento):
     """Extrai xNome e dhEmi com tratamento de diferentes estruturas XML"""
     try:
         with open(caminho, "rb") as arquivo:
             dados = xmltodict.parse(arquivo)
 
             # Verificar diferentes estruturas de XML
-            estruturas = [
-                dados.get("nfeProc", {}).get("NFe", {}).get("infNFe", {}),
-                dados.get("NFe", {}).get("infNFe", {}),
-                dados.get("nfeProc", {}).get("NFe", {}),
-                dados.get("NFe", {}),
-                dados.get("procEventoNFe", {}).get("evento", {}).get("infEvento", {}),
-                dados.get("procEventoNFe", {}).get("evento", {}),
-                dados.get("procEventoNFe", {}),
-                dados.get("mdfeProc", {}).get("MDFe", {}).get("infMDFe", {}),
-                dados.get("MDFe", {}).get("mdfeProc", {}).get("infMDFe", {}),
-                dados.get("mdfeProc", {}).get("infMDFe", {}),
-                dados.get("MDFe", {}).get("infMDFe", {}),
-                dados.get("MDFe", {}),
-                dados.get("procEventoMDFe", {}),
-                dados.get("procEventoMDFe", {}).get("eventoMDFe", {}),
-                dados.get("procEventoMDFe", {}).get("eventoMDFe", {}).get("infEvento", {}),
-            ]
+            estruturas = list()
+
+            if "NFE" == tipo_documento or "ALL" == tipo_documento:
+                estruturas.append(
+                    dados.get("nfeProc", {}).get("NFe", {}).get("infNFe", {})
+                )
+                estruturas.append(dados.get("NFe", {}).get("infNFe", {}))
+                estruturas.append(dados.get("nfeProc", {}).get("NFe", {}))
+                estruturas.append(dados.get("NFe", {}))
+                estruturas.append(
+                    dados.get("procEventoNFe", {})
+                    .get("evento", {})
+                    .get("infEvento", {})
+                )
+                estruturas.append(dados.get("procEventoNFe", {}).get("evento", {}))
+                estruturas.append(dados.get("procEventoNFe", {}))
+            elif "MDFE" == tipo_documento or "ALL" == tipo_documento:
+                estruturas.append(
+                    dados.get("mdfeProc", {}).get("MDFe", {}).get("infMDFe", {})
+                )
+                estruturas.append(
+                    dados.get("MDFe", {}).get("mdfeProc", {}).get("infMDFe", {})
+                )
+                estruturas.append(dados.get("mdfeProc", {}).get("infMDFe", {}))
+                estruturas.append(dados.get("MDFe", {}).get("infMDFe", {}))
+                estruturas.append(dados.get("MDFe", {}))
+                estruturas.append(dados.get("procEventoMDFe", {}))
+                estruturas.append(dados.get("procEventoMDFe", {}).get("eventoMDFe", {}))
+                estruturas.append(
+                    dados.get("procEventoMDFe", {})
+                    .get("eventoMDFe", {})
+                    .get("infEvento", {})
+                )
+
+            # estruturas = [
+            #     dados.get("nfeProc", {}).get("NFe", {}).get("infNFe", {}),
+            #     dados.get("NFe", {}).get("infNFe", {}),
+            #     dados.get("nfeProc", {}).get("NFe", {}),
+            #     dados.get("NFe", {}),
+            #     dados.get("procEventoNFe", {}).get("evento", {}).get("infEvento", {}),
+            #     dados.get("procEventoNFe", {}).get("evento", {}),
+            #     dados.get("procEventoNFe", {}),
+            #     dados.get("mdfeProc", {}).get("MDFe", {}).get("infMDFe", {}),
+            #     dados.get("MDFe", {}).get("mdfeProc", {}).get("infMDFe", {}),
+            #     dados.get("mdfeProc", {}).get("infMDFe", {}),
+            #     dados.get("MDFe", {}).get("infMDFe", {}),
+            #     dados.get("MDFe", {}),
+            #     dados.get("procEventoMDFe", {}),
+            #     dados.get("procEventoMDFe", {}).get("eventoMDFe", {}),
+            #     dados.get("procEventoMDFe", {})
+            #     .get("eventoMDFe", {})
+            #     .get("infEvento", {}),
+            # ]
 
             for estrutura in estruturas:
-                if "emit" in estrutura and "xNome" in estrutura["emit"]:
+                if "emit" in estrutura and "CNPJ" in estrutura["emit"]:
                     # dados_emitente = list()
                     # dados_emitente.append(estrutura["emit"]["CNPJ"])
                     # dados_emitente.append(estrutura["emit"]["xNome"])
@@ -78,9 +114,7 @@ def extrair_dados_xml(caminho):
                     emitente = estrutura["emit"]["CNPJ"]
                     data_str = estrutura.get("ide", {}).get("dhEmi", "sem_data")
                     return emitente, data_str
-                elif (
-                    "CNPJ" in estrutura and estrutura.get("tpEvento", None) == "110111"
-                ):
+                elif "CNPJ" in estrutura and estrutura.get("tpEvento") == "110111":
                     emitente = estrutura.get("CNPJ")
                     data_str = estrutura.get("dhEvento", "sem_data")
                     return emitente, data_str
@@ -126,10 +160,13 @@ def criar_estrutura_pastas(base, emitente, data_str):
         return None
 
 
-def processar_xml(pasta_origem, pasta_destino, funcao_copy):
+def processar_xml(pasta_origem, pasta_destino, funcao_copy, tipo_documento):
     """Processa todos os XMLs recursivamente com relatório detalhado"""
     contador = 0
     erros = 0
+
+    if tipo_documento == None or tipo_documento == "":
+        tipo_documento = "ALL"
 
     print(f"\nIniciando processamento em: {pasta_origem}")
 
@@ -139,7 +176,7 @@ def processar_xml(pasta_origem, pasta_destino, funcao_copy):
                 continue
 
             caminho_completo = os.path.join(raiz, arquivo)
-            emitente, data_str = extrair_dados_xml(caminho_completo)
+            emitente, data_str = extrair_dados_xml(caminho_completo, tipo_documento)
 
             if not emitente:
                 erros += 1
@@ -174,8 +211,9 @@ if __name__ == "__main__":
     opcao = sys.argv[1].strip()
     origem = sys.argv[2].strip()
     destino = sys.argv[3].strip()
+    documento = sys.argv[4].strip()
 
     if not os.path.exists(origem):
         print("\nErro: A pasta de origem não existe!")
     else:
-        processar_xml(origem, destino, opcao)
+        processar_xml(origem, destino, opcao, documento)
