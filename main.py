@@ -2,7 +2,7 @@ import os
 import sys
 import xmltodict
 import shutil
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 
 def sanitizar_nome(nome):
@@ -85,26 +85,6 @@ def extrair_dados_xml(caminho, tipo_documento):
                     .get("infEvento", {})
                 )
 
-            # estruturas = [
-            #     dados.get("nfeProc", {}).get("NFe", {}).get("infNFe", {}),
-            #     dados.get("NFe", {}).get("infNFe", {}),
-            #     dados.get("nfeProc", {}).get("NFe", {}),
-            #     dados.get("NFe", {}),
-            #     dados.get("procEventoNFe", {}).get("evento", {}).get("infEvento", {}),
-            #     dados.get("procEventoNFe", {}).get("evento", {}),
-            #     dados.get("procEventoNFe", {}),
-            #     dados.get("mdfeProc", {}).get("MDFe", {}).get("infMDFe", {}),
-            #     dados.get("MDFe", {}).get("mdfeProc", {}).get("infMDFe", {}),
-            #     dados.get("mdfeProc", {}).get("infMDFe", {}),
-            #     dados.get("MDFe", {}).get("infMDFe", {}),
-            #     dados.get("MDFe", {}),
-            #     dados.get("procEventoMDFe", {}),
-            #     dados.get("procEventoMDFe", {}).get("eventoMDFe", {}),
-            #     dados.get("procEventoMDFe", {})
-            #     .get("eventoMDFe", {})
-            #     .get("infEvento", {}),
-            # ]
-
             for estrutura in estruturas:
                 if "emit" in estrutura and "CNPJ" in estrutura["emit"]:
                     # dados_emitente = list()
@@ -177,6 +157,20 @@ def processar_xml(pasta_origem, pasta_destino, funcao_copy, tipo_documento):
 
             caminho_completo = os.path.join(raiz, arquivo)
             emitente, data_str = extrair_dados_xml(caminho_completo, tipo_documento)
+
+            if data_str:
+                data_minima = date.today()
+                data_minima = data_minima.replace(day=1)
+
+                data_emissao_nf = date.fromisoformat(data_str.split("T")[0])
+
+            if data_str is None:
+                print(f"Data de emissao vazia. {data_str}.")
+                continue
+
+            if data_emissao_nf < data_minima:
+                print(f"Data de emissao menor que data minima. {data_emissao_nf}.")
+                continue
 
             if not emitente:
                 erros += 1
