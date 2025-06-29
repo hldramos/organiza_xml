@@ -159,22 +159,26 @@ def processar_xml(pasta_origem, pasta_destino, funcao_copy, tipo_documento):
             emitente, data_str = extrair_dados_xml(caminho_completo, tipo_documento)
 
             if data_str:
-                data_minima = date.today()
-                data_minima = data_minima.replace(day=1)
-
-                data_emissao_nf = date.fromisoformat(data_str.split("T")[0])
+                data_minima = date.today() - timedelta(days=5)
+                try:
+                    data_emissao_nf = date.fromisoformat(data_str.split("T")[0])
+                except:
+                    print(f"Erro: Falha na conversao de data de emissao.")
+                    continue
 
             if data_str is None:
-                print(f"Data de emissao vazia. {data_str}.")
+                print(f"Erro: Data de emissao vazia. {data_str}.")
                 continue
 
             if data_emissao_nf < data_minima:
-                print(f"Data de emissao menor que data minima. {data_emissao_nf}.")
+                print(
+                    f"Erro: Data de emissao menor que data minima, {data_emissao_nf}."
+                )
                 continue
 
             if not emitente:
                 erros += 1
-                print(f"Erro: Não foi possível extrair dados de {arquivo}")
+                print(f"Erro: Não foi possível extrair dados de {arquivo}.")
                 continue
 
             destino = criar_estrutura_pastas(pasta_destino, emitente, data_str)
