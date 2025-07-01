@@ -60,6 +60,8 @@ def extrair_dados_xml(caminho, tipo_documento):
                 estruturas.append(dados.get("NFe", {}).get("infNFe", {}))
                 estruturas.append(dados.get("nfeProc", {}).get("NFe", {}))
                 estruturas.append(dados.get("NFe", {}))
+                estruturas.append(dados.get("envEvento", {}).get("evento", {}).get("infEvento", {}))
+                estruturas.append(dados.get("EventoNFe", {}))
                 estruturas.append(
                     dados.get("procEventoNFe", {})
                     .get("evento", {})
@@ -94,7 +96,7 @@ def extrair_dados_xml(caminho, tipo_documento):
                     emitente = estrutura["emit"]["CNPJ"]
                     data_str = estrutura.get("ide", {}).get("dhEmi", "sem_data")
                     return emitente, data_str
-                elif "CNPJ" in estrutura and estrutura.get("tpEvento") == "110111":
+                elif "CNPJ" in estrutura and estrutura.get("tpEvento") in ["110111"]:
                     emitente = estrutura.get("CNPJ")
                     data_str = estrutura.get("dhEvento", "sem_data")
                     return emitente, data_str
