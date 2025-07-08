@@ -53,7 +53,7 @@ def extrair_dados_xml(caminho, tipo_documento):
             # Verificar diferentes estruturas de XML
             estruturas = list()
 
-            if "NFE" == tipo_documento or "ALL" == tipo_documento:
+            if tipo_documento in ["NFE", "ALL"]:
                 estruturas.append(
                     dados.get("nfeProc", {}).get("NFe", {}).get("infNFe", {})
                 )
@@ -71,7 +71,8 @@ def extrair_dados_xml(caminho, tipo_documento):
                 )
                 estruturas.append(dados.get("procEventoNFe", {}).get("evento", {}))
                 estruturas.append(dados.get("procEventoNFe", {}))
-            elif "MDFE" == tipo_documento or "ALL" == tipo_documento:
+
+            if tipo_documento in ["MDFE", "ALL"]:
                 estruturas.append(
                     dados.get("procEventoMDFe", {})
                     .get("eventoMDFe", {})
@@ -89,7 +90,9 @@ def extrair_dados_xml(caminho, tipo_documento):
                 estruturas.append(dados.get("procEventoMDFe", {}))
                 estruturas.append(dados.get("procEventoMDFe", {}).get("eventoMDFe", {}))
 
-            for estrutura in estruturas:
+            estruturas_formatada = [x for x in estruturas if x]
+
+            for estrutura in estruturas_formatada:
                 if "emit" in estrutura and "CNPJ" in estrutura["emit"]:
                     emitente = estrutura["emit"]["CNPJ"]
                     data_str = estrutura.get("ide", {}).get("dhEmi", "sem_data")
