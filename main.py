@@ -60,7 +60,9 @@ def extrair_dados_xml(caminho, tipo_documento):
                 estruturas.append(dados.get("NFe", {}).get("infNFe", {}))
                 estruturas.append(dados.get("nfeProc", {}).get("NFe", {}))
                 estruturas.append(dados.get("NFe", {}))
-                estruturas.append(dados.get("envEvento", {}).get("evento", {}).get("infEvento", {}))
+                estruturas.append(
+                    dados.get("envEvento", {}).get("evento", {}).get("infEvento", {})
+                )
                 estruturas.append(dados.get("EventoNFe", {}))
                 estruturas.append(
                     dados.get("procEventoNFe", {})
@@ -70,6 +72,11 @@ def extrair_dados_xml(caminho, tipo_documento):
                 estruturas.append(dados.get("procEventoNFe", {}).get("evento", {}))
                 estruturas.append(dados.get("procEventoNFe", {}))
             elif "MDFE" == tipo_documento or "ALL" == tipo_documento:
+                estruturas.append(
+                    dados.get("procEventoMDFe", {})
+                    .get("eventoMDFe", {})
+                    .get("infEvento", {})
+                )
                 estruturas.append(
                     dados.get("mdfeProc", {}).get("MDFe", {}).get("infMDFe", {})
                 )
@@ -81,18 +88,9 @@ def extrair_dados_xml(caminho, tipo_documento):
                 estruturas.append(dados.get("MDFe", {}))
                 estruturas.append(dados.get("procEventoMDFe", {}))
                 estruturas.append(dados.get("procEventoMDFe", {}).get("eventoMDFe", {}))
-                estruturas.append(
-                    dados.get("procEventoMDFe", {})
-                    .get("eventoMDFe", {})
-                    .get("infEvento", {})
-                )
 
             for estrutura in estruturas:
                 if "emit" in estrutura and "CNPJ" in estrutura["emit"]:
-                    # dados_emitente = list()
-                    # dados_emitente.append(estrutura["emit"]["CNPJ"])
-                    # dados_emitente.append(estrutura["emit"]["xNome"])
-                    # emitente = "-".join(dados_emitente)
                     emitente = estrutura["emit"]["CNPJ"]
                     data_str = estrutura.get("ide", {}).get("dhEmi", "sem_data")
                     return emitente, data_str
@@ -100,6 +98,7 @@ def extrair_dados_xml(caminho, tipo_documento):
                     emitente = estrutura.get("CNPJ")
                     data_str = estrutura.get("dhEvento", "sem_data")
                     return emitente, data_str
+
             return None, None
 
     except Exception as e:
@@ -142,15 +141,26 @@ def criar_estrutura_pastas(base, emitente, data_str):
         return None
 
 
-def processar_xml(pasta_origem, pasta_destino, funcao_copy, tipo_documento):
+def processar_xml(
+    pasta_origem, pasta_destino, funcao_copy, tipo_documento, data_inicial
+):
     """Processa todos os XMLs recursivamente com relatório detalhado"""
     contador = 0
     erros = 0
 
-    if tipo_documento == None or tipo_documento == "":
+    if not tipo_documento.split():
         tipo_documento = "ALL"
 
-    print(f"\nIniciando processamento em: {pasta_origem}")
+    try:
+        data_minima = date.fromisoformat(data_inicial)
+    except:
+        data_minima = date.today() - timedelta(days=30)
+
+    print("-" * 55)
+    print(f"Iniciando processamento em: {pasta_origem}")
+    print(f"Tipo de documento definido: {tipo_documento}")
+    print(f"Data ininial definida: {data_minima} ")
+    print("-" * 55)
 
     for raiz, _, arquivos in os.walk(pasta_origem):
         for arquivo in arquivos:
@@ -160,21 +170,15 @@ def processar_xml(pasta_origem, pasta_destino, funcao_copy, tipo_documento):
             caminho_completo = os.path.join(raiz, arquivo)
             emitente, data_str = extrair_dados_xml(caminho_completo, tipo_documento)
 
-            if data_str:
-                data_minima = date.today() - timedelta(days=5)
-                try:
-                    data_emissao_nf = date.fromisoformat(data_str.split("T")[0])
-                except:
-                    print(f"Erro: Falha na conversao de data de emissao.")
-                    continue
-
             if data_str is None:
-                print(f"Erro: Data de emissao vazia. {data_str}.")
+                print(f"Erro: Data de emissao vazia. {data_str}. {arquivo}")
                 continue
+
+            data_emissao_nf = date.fromisoformat(data_str.split("T")[0])
 
             if data_emissao_nf < data_minima:
                 print(
-                    f"Erro: Data de emissao menor que data minima, {data_emissao_nf}."
+                    f"Erro: Data de emissao menor que data minima, {data_emissao_nf}. {arquivo}"
                 )
                 continue
 
@@ -187,14 +191,18 @@ def processar_xml(pasta_origem, pasta_destino, funcao_copy, tipo_documento):
 
             if not destino:
                 erros += 1
-                print(f"Erro: Não foi possível criar estrutura para {emitente}")
+                print(
+                    f"Erro: Não foi possível criar estrutura para {emitente}. {arquivo}"
+                )
                 continue
 
             try:
                 if funcao_copy.lower() == "copiar":
-                    shutil.copy2(caminho_completo, os.path.join(destino, arquivo))
+                    if not os.path.exists(os.path.join(destino, arquivo)):
+                        shutil.copy2(caminho_completo, os.path.join(destino, arquivo))
                 else:
-                    shutil.move(caminho_completo, os.path.join(destino, arquivo))
+                    if not os.path.exists(os.path.join(destino, arquivo)):
+                        shutil.move(caminho_completo, os.path.join(destino, arquivo))
                 contador += 1
             except Exception as e:
                 erros += 1
@@ -208,12 +216,13 @@ def processar_xml(pasta_origem, pasta_destino, funcao_copy, tipo_documento):
 
 if __name__ == "__main__":
     print("=== Organizador de XMLs ===")
-    opcao = sys.argv[1].strip()
-    origem = sys.argv[2].strip()
-    destino = sys.argv[3].strip()
-    documento = sys.argv[4].strip()
+    opcao = sys.argv[1].strip()  # --- COPIAR ou MOVER
+    origem = sys.argv[2].strip()  # --- Pasta Raiz de Origem
+    destino = sys.argv[3].strip()  # --- Pasta Raiz de Destino
+    documento = sys.argv[4].strip()  # --- Tipo de Documento ["NFE","MDFE","ALL"]
+    data = sys.argv[5].strip()  # --- Data de inicio da emissao
 
     if not os.path.exists(origem):
         print("\nErro: A pasta de origem não existe!")
     else:
-        processar_xml(origem, destino, opcao, documento)
+        processar_xml(origem, destino, opcao, documento, data)
